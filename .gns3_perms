@@ -1,0 +1,11 @@
+664:1000:1001:/home/news_client.c
+755:0:0:/home/f
+777:1000:0:/home/credentials
+664:1000:1001:/home/news_server.h
+664:1000:1001:/home/news_server.c
+777:1000:0:/home/server.h
+777:1000:0:/home/server.c
+664:1000:1001:/home/news_client.h
+777:1000:0:/home/.gns3_perms
+777:1000:0:/home/server2.c
+777:1000:0:/home
