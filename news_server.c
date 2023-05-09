@@ -4,58 +4,11 @@
  * All comments in this segment are in english
  *******************************************************************************/
 
-// Includes
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <signal.h>
-
-// Defines
-#define BUF_SIZE 1024
-#define MAX_LEN_CREDS 32
-#define MAX_LEN_LINE 128
-#define MAX_CMD_ARGS 5
-
-// Structs
-typedef struct user_t {
-    char username[MAX_LEN_CREDS];
-    char password[MAX_LEN_CREDS];
-    char type[MAX_LEN_CREDS];
-    int authenticated;
-    struct in_addr ipaddr;
-    uint16_t port;
-} user_t;
-
-typedef struct tcp_client_t {
-    int socket;
-    struct sockaddr_in address;
-} tcp_client_t;
-
-struct GlobalString {
-    char str[100];
-};
-struct GlobalString globalString;
-
 // Global variables
 user_t *users;
 int users_size = 0;
 int udp_tcp;  //0 para udp e 1 para tcp
 int new_socket;
-
-void cleanup() {
-    close(new_socket);
-    printf("Função de limpeza executada.\n");
-}
-
-volatile int received_signal = 0;
-
-void sigint_handler(int sig) {
-    received_signal = 1;
-}
 
 // Function to open credentials.txt file and read all users data
 user_t* load_users(const char* filename, int* size) {
