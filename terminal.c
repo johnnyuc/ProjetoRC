@@ -18,9 +18,11 @@
 #define BUF_SIZE 1024
 #define MAX_LEN_LINE 128
 #define MAX_GROUPS 32
+#define MAX_ARGS 3
 #define h_addr h_addr_list[0]
 
 struct MulticastGroup {
+    char topic[BUF_SIZE];
     char ip[16];
     int port;
 };
@@ -28,9 +30,11 @@ struct MulticastGroup {
 int fd;
 struct MulticastGroup groups[MAX_GROUPS];
 int num_groups = 0;
-char type[MAX_LEN_LINE];
 
-void join_multicast(char *ip, int port) {
+char type[MAX_LEN_LINE];
+char req_topic[MAX_LEN_LINE];
+
+void join_multicast(char *ip, int port, char *topic) {
     struct sockaddr_in addr;
     int sock;
 
@@ -62,15 +66,13 @@ void join_multicast(char *ip, int port) {
         perror("Error joining multicast group");
         exit(1);
     }
-
-    printf("Joined multicast group %s:%d\n", ip, port);
     
     if (fork() == 0) {
         char msg[BUF_SIZE];
         while (1) {
             ssize_t bytes_read = read(sock, msg, BUF_SIZE);
             if (bytes_read > 0) {
-                printf("%.*s\n", (int)bytes_read, msg);
+                printf("\rNOTICIA %s: %.*s> ", req_topic, (int)bytes_read, msg);
                 fflush(stdout);
             }
         }
@@ -81,21 +83,16 @@ void *listener_function(void *arg) {
     char msg[BUF_SIZE];
 
     while (1) {
+        memset(msg, 0, BUF_SIZE);
         ssize_t bytes_read = read(fd, msg, BUF_SIZE);
 
-        // Bytes to print
-        if (bytes_read > 0) {
-            printf("%.*s\n", (int) bytes_read, msg);
-            fflush(stdout);
-        }
-        
         if (strcmp(msg, "reader") == 0) {
             strcpy(type, "reader");
-            printf("Tipo de utilizador alterado para leitor.\n");
+            printf("\rTipo de utilizador alterado para leitor.\n");
             continue;
         } else if (strcmp(msg, "journalist") == 0) {
             strcpy(type, "journalist");
-            printf("Tipo de utilizador alterado para jornalista.\n");
+            printf("\rTipo de utilizador alterado para jornalista.\n");
             continue;
         }
 
@@ -107,12 +104,12 @@ void *listener_function(void *arg) {
         if (inet_aton(token, &addr) != 0) {
             if (IN_MULTICAST(ntohl(addr.s_addr))) {
                 if (num_groups == MAX_GROUPS) {
-                    printf("Número máximo de tópicos subscritos atingido.\n");
+                    printf("\rNúmero máximo de tópicos subscritos atingido.\n");
                 } else {
                     // Verify if it was already added
                     for (int i = 0; i < num_groups; i++) {
                         if (strcmp(groups[i].ip, token) == 0) {
-                            printf("Tópico já subscrito\n");
+                            printf("\rTópico já subscrito\n");
                             break;
                         }
                     }
@@ -121,10 +118,16 @@ void *listener_function(void *arg) {
                     strncpy(groups[num_groups].ip, msg, 16);
                     groups[num_groups].port = atoi(port);
                     num_groups++;
-                    join_multicast(msg, atoi(port));
+                    join_multicast(msg, atoi(port), req_topic);
                 }
                 continue;
             }
+        }
+
+        // Bytes to print
+        if (bytes_read > 0) {
+            printf("\r%.*s\n> ", (int) bytes_read, msg);
+            fflush(stdout);
         }
     }
 }
@@ -133,8 +136,6 @@ void *writer_function(void *arg) {
     char command[MAX_LEN_LINE];
 
     while (1) {
-
-        // While domain is not searchable, requests new domain
         do {
             printf("> ");
             fflush(stdout);
@@ -142,12 +143,75 @@ void *writer_function(void *arg) {
             memset(command, 0, BUF_SIZE);
             fgets(command, MAX_LEN_LINE, stdin);
 
-            if (strlen(command) == 0)
-                printf("Insira um comando.\n");
+            if (strlen(command) < 10) {
+                printf("Insert a command.\n");
+            }
 
-        } while (strlen(command) < 1);
+            if (strcmp(command, "QUIT\n") == 0) {
+                printf("Exiting...\n");
+                exit(0);
+            } else {
+                // Make a copy of the original command
+                char command_copy[MAX_LEN_LINE];
+                strcpy(command_copy, command);
 
-        // Sends domain request
+                char *token;
+                char *args[MAX_ARGS];
+                int argc = 0;
+
+                token = strtok(command_copy, " ");
+                printf("%s\n", token);
+                while (token != NULL && argc < MAX_ARGS) {
+                    args[argc++] = token;
+                    token = strtok(NULL, " ");
+                    printf("%s\n", token);
+                }
+                // add the rest of it
+
+                
+                args[argc] = NULL;  // Terminate the list with NULL
+
+                if (strcmp(args[0], "login") == 0) {
+                    printf("LOGIN ATTEMPT\n");
+                } else if (strcmp(args[0], "list_topics") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0)) {
+                    // LIST_TOPICS
+                    printf("Command: list_topics\n");
+                    printf("Arguments: ");
+                    for (int i = 1; i < argc; i++) {
+                        printf("%s ", args[i]);
+                    }
+                    printf("\n");
+                } else if (strcmp(args[0], "subscribe_topic") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0)) {
+                    // SUBSCRIBE_TOPIC
+                    printf("Command: subscribe_topic\n");
+                    printf("Arguments: ");
+                    for (int i = 1; i < argc; i++) {
+                        printf("%s ", args[i]);
+                    }
+                    printf("\n");
+                } else if (strcmp(args[0], "create_topic") == 0 && strcmp(type, "journalist") == 0) {
+                    // CREATE_TOPIC
+                    printf("Command: create_topic\n");
+                    printf("Arguments: ");
+                    for (int i = 1; i < argc; i++) {
+                        printf("%s ", args[i]);
+                    }
+                    printf("\n");
+                } else if (strcmp(args[0], "send_news") == 0 && strcmp(type, "journalist") == 0) {
+                    // SEND_NEWS
+                    printf("Command: send_news\n");
+                    printf("Arguments: ");
+                    for (int i = 1; i < argc; i++) {
+                        printf("%s ", args[i]);
+                    }
+                    printf("\n");
+                } else {
+                    printf("Comando inválido.\n");
+                }
+            }
+            printf("STRLEN %ld\n", strlen(command));
+        } while (strlen(command) < 5);
+
         write(fd, command, strlen(command));
     }
 }

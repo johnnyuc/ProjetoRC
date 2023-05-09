@@ -11,9 +11,6 @@
 // Global variables
 user_t *users;
 int users_size = 0;
-
-int udp_tcp;  //0 para udp e 1 para tcp
-int new_socket;
 savedata_t save_data;
 
 // Function to open credentials.txt file and read all users data
@@ -64,7 +61,7 @@ user_t* load_users(const char* filename, int* size) {
 
 
 // Function to authenticate an user
-int authenticate_user(struct sockaddr_in address, char **argv, int size) {
+int authenticate_user(struct sockaddr_in address, char **argv, int size, int protocol) {
 
     // Verify if user is already authenticated
     for (int i = 0; i < users_size; i++) {
@@ -82,36 +79,41 @@ int authenticate_user(struct sockaddr_in address, char **argv, int size) {
             if (strcmp(users[j].username, argv[1]) == 0) {
                 // Verify if password is correct
                 if (strcmp(users[j].password, argv[2]) == 0) {
-                    if(strcmp(users[j].type, "administrator") == 0){
+                    if (strcmp(users[j].type, "administrator") == 0) {
                         // Update user's IP address and port
                         users[j].ipaddr = address.sin_addr;
                         users[j].port = address.sin_port;
-                        if(udp_tcp == 0){  //então é udp
+                        if(protocol == 0){  // UDP
                             users[j].authenticated = 1;
                         }
                         return 2;
-                    }else if(strcmp(users[j].type, "journalist") == 0){
+                    } else if (strcmp(users[j].type, "journalist") == 0) {
                         // Update user's IP address and port
                         users[j].ipaddr = address.sin_addr;
                         users[j].port = address.sin_port;
-                        if(udp_tcp == 1){  //então é tcp
+                        if(protocol == 1){  // TCP
                             users[j].authenticated = 1;
                         }
-                        return 9;
-                    }else if(strcmp(users[j].type, "reader") == 0){
+                        return 3;
+                    } else if (strcmp(users[j].type, "reader") == 0) {
                         // Update user's IP address and port
                         users[j].ipaddr = address.sin_addr;
                         users[j].port = address.sin_port;
-                        if(udp_tcp == 1){  //então é tcp
+                        if (protocol == 1){  // TCP
                             users[j].authenticated = 1;
                         }
-                        return 10;
+                        return 4;
                     }
                 }
-                return 4;
+                return 5;
             }
         }
-        return 5;
+        return 6;
+    }
+
+    // Print whole array
+    for (int i = 0; i < users_size; i++) {
+        printf("%s %s %s %d %s %d\n", users[i].username, users[i].password, users[i].type, users[i].authenticated, inet_ntoa(users[i].ipaddr), users[i].port);
     }
 
     return 1;
@@ -151,6 +153,7 @@ char **command_validation(char *command, int *num_tokens) {
 }
 
 // Function to free command arguments
+// Used in command_validation
 void free_argv(char **argv, int argc) {
     for (int i = 0; i < argc; i++) {
         free(argv[i]);
@@ -165,9 +168,11 @@ int main(int argc, char const *argv[]) {
         exit(EXIT_FAILURE);
     }
     
+    // Store ports
     int news_port = atoi(argv[1]);
     int config_port = atoi(argv[2]);
 
+    // Verify if ports are valid
     if (news_port < 0 || news_port > 65535 || config_port < 0 || config_port > 65535) {
         printf("Erro: o valor das portas deverá estar entre 1 e 65535\n");
         exit(EXIT_FAILURE);

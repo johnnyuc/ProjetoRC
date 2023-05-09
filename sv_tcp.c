@@ -14,12 +14,9 @@ void handle_tcp(int new_socket, int server_fd, struct sockaddr_in address) {
     sprintf(buffer, "Bem-vindo ao servidor de notícias");
     send(new_socket, buffer, strlen(buffer), 0);
 
-    char msg[200];
-
     while (1) {
         memset(buffer, 0, sizeof(buffer));
         int valread = read(new_socket, buffer, BUF_SIZE);
-        printf("Mensagem recebida: %s\n", buffer);
         if (valread < 0) {
             // Error
             perror("Erro ao ler mensagem do cliente");
@@ -38,31 +35,29 @@ void handle_tcp(int new_socket, int server_fd, struct sockaddr_in address) {
         if (argv == NULL) continue;
 
         if (strcmp(argv[0], "X") == 0) continue;
-        int try_auth = authenticate_user(address, argv, argc);
+        int try_auth = authenticate_user(address, argv, argc, 1);
 
         switch (try_auth) {
             case 1:
                 sprintf(buffer, "Utilizador não autenticado\n");
                 break;
             case 2:
-                sprintf(buffer, "Utilizador %s não admitido\n", argv[1]); //administrator
+                sprintf(buffer, "Utilizador %s não admitido\n", argv[1]); // Administrator
                 break;
-            case 9:
-                sprintf(buffer, "Utilizador %s autenticado com sucesso\n\n", argv[1]); //journalist
+            case 3:
+                write(new_socket, "journalist", strlen("journalist")+1); // +1 for '\0'
+                sprintf(buffer, "Utilizador %s autenticado com sucesso\n", argv[1]); // Journalist
                 printf("Login de %s\n", argv[1]);
-                snprintf(msg, 200, "journalist");
-                write(new_socket, msg, strlen(msg));
-                break;
-            case 10:
-                sprintf(buffer, "Utilizador %s autenticado com sucesso\n\n", argv[1]); //reader
-                printf("Login de %s\n", argv[1]);
-                snprintf(msg, 200, "reader");
-                write(new_socket, buffer, strlen(buffer));
                 break;
             case 4:
-                sprintf(buffer, "Password incorreta\n");
+                write(new_socket, "reader", strlen("reader")+1); // +1 for '\0'
+                sprintf(buffer, "Utilizador %s autenticado com sucesso\n", argv[1]); // Reader
+                printf("Login de %s\n", argv[1]);
                 break;
             case 5:
+                sprintf(buffer, "Password incorreta\n");
+                break;
+            case 6:
                 sprintf(buffer, "Utilizador '%s' não existe\n", argv[1]);
                 break;
             case 0:
@@ -70,7 +65,7 @@ void handle_tcp(int new_socket, int server_fd, struct sockaddr_in address) {
                     sprintf(buffer, "O utilizador deslogou da conta\n");
                     break;
                 } else {
-                    // Stuff happens here
+                    // Main function
                     printf("Mensagem TCP: %s\n", buffer);
                 }
                 break;

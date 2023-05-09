@@ -56,7 +56,6 @@ void *udp_thread(void *arg) {
         printf("Erro no sendto");
     }
 
-
     // Keep-alive
     while (1) {
         valread = recvfrom(sock_fd, buffer, BUF_SIZE, MSG_WAITALL,
@@ -70,7 +69,7 @@ void *udp_thread(void *arg) {
         if (argv == NULL) continue;
 
         if (strcmp(argv[0], "X") == 0) continue; // Ignore verbose UDP startup from netcat
-        int try_auth = authenticate_user(address, argv, argc);
+        int try_auth = authenticate_user(address, argv, argc, 0);
 
         int aux=0;
         switch (try_auth) {
@@ -78,7 +77,7 @@ void *udp_thread(void *arg) {
                 sprintf(buffer, "Utilizador não autenticado\n");
                 break;
             case 2:
-                sprintf(buffer, "Utilizador %s autenticado com sucesso\n\n", argv[1]);
+                sprintf(buffer, "Utilizador %s autenticado com sucesso\n", argv[1]);
                 printf("Login de %s\n", argv[1]);
                 aux=1;
                 break;

@@ -38,7 +38,7 @@ typedef struct savedata_t {
 
 // Function prototypes
 user_t* load_users(const char* filename, int* size);
-int authenticate_user(struct sockaddr_in address, char **argv, int size);
+int authenticate_user(struct sockaddr_in address, char **argv, int size, int protocol);
 char **command_validation(char *command, int *num_tokens);
 void free_argv(char **argv, int argc);
 
