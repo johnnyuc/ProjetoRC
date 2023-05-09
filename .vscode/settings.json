@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "pthread.h": "c",
-        "inet.h": "c"
+        "inet.h": "c",
+        "sv_udp.h": "c"
     }
 }

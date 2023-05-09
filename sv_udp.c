@@ -1,6 +1,19 @@
+/*******************************************************************************
+ * LEI UC 2022-2023 // Network communications (RC)
+ * Johnny Fernandes 2021190668, João Macedo 2021220627
+ * All comments in this segment are in english
+ *******************************************************************************/
+
+#include "sv_main.h"
+#include "sv_udp.h"
+
+// Global variables [inside sv_main.c]
+extern user_t *users;
+extern int users_size;
+extern savedata_t save_data;
+
 // Creates UDP listening thread
 void *udp_thread(void *arg) {
-    udp_tcp = 0;
     int port = *(int*)arg;
     int sock_fd;
     struct sockaddr_in address;
@@ -136,9 +149,7 @@ void save_users() {
     FILE *file;
     int i = 0; // Tokeziner counter
 
-    extern struct GlobalString globalString;
-
-    file = fopen(globalString.str, "w");
+    file = fopen(save_data.str, "w");
     if (file == NULL) {
         printf("Erro ao abrir o ficheiro.\n");
         exit(1);

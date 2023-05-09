@@ -1,7 +1,15 @@
+/*******************************************************************************
+ * LEI UC 2022-2023 // Network communications (RC)
+ * Johnny Fernandes 2021190668, João Macedo 2021220627
+ * All comments in this segment are in english
+ *******************************************************************************/
+
+#include "sv_main.h"
+#include "sv_tcp.h"
+
 // Function to handle messages from a single client
 void handle_tcp(int new_socket, int server_fd, struct sockaddr_in address) {
     char buffer[BUF_SIZE] = {0};
-    udp_tcp = 1;
 
     sprintf(buffer, "Bem-vindo ao servidor de notícias");
     send(new_socket, buffer, strlen(buffer), 0);
@@ -112,16 +120,14 @@ void *tcp_thread(void *arg) {
     printf("Servidor TCP à escuta na porta %d\n", port);
 
     // Keep-alive
-    while (!received_signal) {
-            // Aqui vai o corpo do loop
+    while (1) {
+        int new_socket;
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*) &addrlen))<0) {
             perror("Accept do TCP falhou");
             exit(EXIT_FAILURE);
         }
 
-        // Client connected
         printf("Cliente conectado: %s:%d\n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
         if (fork() == 0) {
             close(server_fd);
             handle_tcp(new_socket, server_fd, address);
