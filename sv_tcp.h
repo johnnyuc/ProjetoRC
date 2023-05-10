@@ -8,13 +8,19 @@
 # define SV_TCP_H
 
 // Includes
-#include <arpa/inet.h>
+#include <arpa/inet.h> // Used for struct, cannot remove
 
 // Structs
 typedef struct tcp_client_t {
     int socket;
     struct sockaddr_in address;
 } tcp_client_t;
+
+typedef struct multicast_group_t {
+    char topic[BUF_SIZE];
+    char ip[16];
+    int port;
+} multicast_group_t;
 
 // Function prototypes
 void *tcp_thread(void *arg);

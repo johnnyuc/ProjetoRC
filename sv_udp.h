@@ -7,7 +7,6 @@
 # ifndef SV_UDP_H
 # define SV_UDP_H
 
-
 // Functio prototypes
 void *udp_thread(void *arg);
 void save_users();

@@ -4,41 +4,47 @@
  * All comments in this segment are in english
  *******************************************************************************/
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <pthread.h>
+#include "terminal.h"
 
-#define BUF_SIZE 1024
-#define MAX_LEN_LINE 128
-#define MAX_GROUPS 32
-#define MAX_ARGS 3
-#define h_addr h_addr_list[0]
-
-struct MulticastGroup {
-    char topic[BUF_SIZE];
-    char ip[16];
-    int port;
-};
-
+// Global variables
 int fd;
-struct MulticastGroup groups[MAX_GROUPS];
+pthread_t listener_thread, writer_thread;
+
+multicast_group_t groups[MAX_GROUPS];
+int socks[MAX_GROUPS];
 int num_groups = 0;
 
 char type[MAX_LEN_LINE];
 char req_topic[MAX_LEN_LINE];
 
+// SIGINT handler
+void sigint_handler(int sig) {
+    // Close all socks
+    for (int i = 0; i < num_groups; i++) {
+        close(socks[i]);
+    }
+
+    // Close all threads
+    pthread_cancel(listener_thread);
+    if (sig == SIGINT || sig == EXIT_FAILURE) 
+        pthread_cancel(writer_thread);
+    
+    // Wait for child processes to finish
+    for (int i = 0; i < num_groups; i++) {
+        wait(NULL);
+    }
+
+    printf("\rA sair...\n");
+    exit(0);
+}
+
+// Function to join multicast group
 void join_multicast(char *ip, int port, char *topic) {
     struct sockaddr_in addr;
     int sock;
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
+    socks[num_groups-1] = sock;
     if (sock < 0) {
         perror("Error creating socket");
         exit(1);
@@ -67,6 +73,7 @@ void join_multicast(char *ip, int port, char *topic) {
         exit(1);
     }
     
+    // Create child process to listen to multicast group
     if (fork() == 0) {
         char msg[BUF_SIZE];
         while (1) {
@@ -79,6 +86,7 @@ void join_multicast(char *ip, int port, char *topic) {
     }
 }
 
+// Function to keep reading data from the server (THREAD)
 void *listener_function(void *arg) {
     char msg[BUF_SIZE];
 
@@ -132,10 +140,12 @@ void *listener_function(void *arg) {
     }
 }
 
+// Function to send data to the server (THREAD)
 void *writer_function(void *arg) {
     char command[MAX_LEN_LINE];
 
     while (1) {
+        int valid = 0;
         do {
             printf("> ");
             fflush(stdout);
@@ -147,9 +157,10 @@ void *writer_function(void *arg) {
                 printf("Insert a command.\n");
             }
 
-            if (strcmp(command, "QUIT\n") == 0) {
-                printf("Exiting...\n");
-                exit(0);
+            if (strcmp(command, "quit\n") == 0) {
+                sigint_handler(0);
+                pthread_cancel(pthread_self());
+                pthread_exit(NULL);
             } else {
                 // Make a copy of the original command
                 char command_copy[MAX_LEN_LINE];
@@ -160,67 +171,51 @@ void *writer_function(void *arg) {
                 int argc = 0;
 
                 token = strtok(command_copy, " ");
-                printf("%s\n", token);
                 while (token != NULL && argc < MAX_ARGS) {
                     args[argc++] = token;
                     token = strtok(NULL, " ");
-                    printf("%s\n", token);
                 }
-                // add the rest of it
-
                 
                 args[argc] = NULL;  // Terminate the list with NULL
 
-                if (strcmp(args[0], "login") == 0) {
-                    printf("LOGIN ATTEMPT\n");
-                } else if (strcmp(args[0], "list_topics") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0)) {
-                    // LIST_TOPICS
-                    printf("Command: list_topics\n");
-                    printf("Arguments: ");
-                    for (int i = 1; i < argc; i++) {
-                        printf("%s ", args[i]);
-                    }
-                    printf("\n");
-                } else if (strcmp(args[0], "subscribe_topic") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0)) {
-                    // SUBSCRIBE_TOPIC
-                    printf("Command: subscribe_topic\n");
-                    printf("Arguments: ");
-                    for (int i = 1; i < argc; i++) {
-                        printf("%s ", args[i]);
-                    }
-                    printf("\n");
-                } else if (strcmp(args[0], "create_topic") == 0 && strcmp(type, "journalist") == 0) {
-                    // CREATE_TOPIC
-                    printf("Command: create_topic\n");
-                    printf("Arguments: ");
-                    for (int i = 1; i < argc; i++) {
-                        printf("%s ", args[i]);
-                    }
-                    printf("\n");
-                } else if (strcmp(args[0], "send_news") == 0 && strcmp(type, "journalist") == 0) {
-                    // SEND_NEWS
-                    printf("Command: send_news\n");
-                    printf("Arguments: ");
-                    for (int i = 1; i < argc; i++) {
-                        printf("%s ", args[i]);
-                    }
-                    printf("\n");
+                if (strcmp(args[0], "login") == 0 && argc == 3) {
+                    valid = 1;
+                } else if (strcmp(args[0], "list_topics") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0) && argc == 1) {
+                    valid = 1;
+                } else if (strcmp(args[0], "subscribe_topic") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0) && argc == 2) {
+                    valid = 1;
+                } else if (strcmp(args[0], "create_topic") == 0 && strcmp(type, "journalist") == 0 && argc == 3) {
+                    valid = 1;
+                } else if (strcmp(args[0], "send_news") == 0 && strcmp(type, "journalist") == 0 && argc == 3) {
+                    valid = 1;
                 } else {
-                    printf("Comando inválido.\n");
+                    printf("Command is not valid.\n");
                 }
+                /* // DEBUG
+                printf("Command: %s\n", args[0]);
+                printf("Arguments: ");
+                for (int i = 1; i < argc; i++) {
+                    printf("%s ", args[i]);
+                }
+                printf("\nARGC: %d\n", argc);
+                */
             }
-            printf("STRLEN %ld\n", strlen(command));
-        } while (strlen(command) < 5);
+        } while (!valid);
 
+        printf("Command: %s\n", command);
         write(fd, command, strlen(command));
     }
 }
 
+// Main function
 int main(int argc, char *argv[]) {
+    signal(SIGINT, sigint_handler);
+
     char endServer[100];
     struct sockaddr_in addr;
     struct hostent *hostPtr;
 
+    // Verify arguments
     if (argc != 3) {
         printf("./tcp_client <host> <port>\n");
         exit(-1);
@@ -241,7 +236,6 @@ int main(int argc, char *argv[]) {
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         perror("Connect");
 
-    pthread_t listener_thread, writer_thread;
     pthread_create(&listener_thread, NULL, listener_function, NULL);
     pthread_create(&writer_thread, NULL, writer_function, NULL);
 

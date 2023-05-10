@@ -24,7 +24,7 @@ void handle_tcp(int new_socket, int server_fd, struct sockaddr_in address) {
         } else if (valread == 0) {
             // Client disconnected
             printf("Cliente desconectado\n");
-            break;
+            exit(EXIT_SUCCESS);
         }
 
         buffer[strcspn(buffer, "\n")] = 0;
