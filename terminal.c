@@ -75,11 +75,12 @@ void join_multicast(char *ip, int port, char *topic) {
     
     // Create child process to listen to multicast group
     if (fork() == 0) {
+        printf("A ouvir grupo %s\n", topic);
         char msg[BUF_SIZE];
         while (1) {
             ssize_t bytes_read = read(sock, msg, BUF_SIZE);
             if (bytes_read > 0) {
-                printf("\rNOTICIA %s: %.*s> ", req_topic, (int)bytes_read, msg);
+                printf("\rNova notícia [%s]: %.*s> ", req_topic, (int)bytes_read, msg);
                 fflush(stdout);
             }
         }
@@ -96,11 +97,9 @@ void *listener_function(void *arg) {
 
         if (strcmp(msg, "reader") == 0) {
             strcpy(type, "reader");
-            printf("\rTipo de utilizador alterado para leitor.\n");
             continue;
         } else if (strcmp(msg, "journalist") == 0) {
             strcpy(type, "journalist");
-            printf("\rTipo de utilizador alterado para jornalista.\n");
             continue;
         }
 
@@ -134,7 +133,7 @@ void *listener_function(void *arg) {
 
         // Bytes to print
         if (bytes_read > 0) {
-            printf("\r%.*s\n> ", (int) bytes_read, msg);
+            printf("\r*%.*s\n> ", (int) bytes_read, msg);
             fflush(stdout);
         }
     }
@@ -150,14 +149,16 @@ void *writer_function(void *arg) {
             printf("> ");
             fflush(stdout);
 
+            // Read command from stdin
             memset(command, 0, BUF_SIZE);
             fgets(command, MAX_LEN_LINE, stdin);
 
-            if (strlen(command) < 10) {
-                printf("Insert a command.\n");
-            }
-
-            if (strcmp(command, "quit\n") == 0) {
+            // Remove newline character
+            char *newline_pos = strchr(command, '\n');
+            if (newline_pos != NULL) *newline_pos = '\0';
+            if (strlen(command) == 0) continue;
+            
+            if (strcmp(command, "quit") == 0) {
                 sigint_handler(0);
                 pthread_cancel(pthread_self());
                 pthread_exit(NULL);
@@ -175,7 +176,6 @@ void *writer_function(void *arg) {
                     args[argc++] = token;
                     token = strtok(NULL, " ");
                 }
-                
                 args[argc] = NULL;  // Terminate the list with NULL
 
                 if (strcmp(args[0], "login") == 0 && argc == 3) {
@@ -183,13 +183,16 @@ void *writer_function(void *arg) {
                 } else if (strcmp(args[0], "list_topics") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0) && argc == 1) {
                     valid = 1;
                 } else if (strcmp(args[0], "subscribe_topic") == 0 && (strcmp(type, "reader") == 0 || strcmp(type, "journalist") == 0) && argc == 2) {
+                    strcpy(req_topic, args[1]);
                     valid = 1;
                 } else if (strcmp(args[0], "create_topic") == 0 && strcmp(type, "journalist") == 0 && argc == 3) {
                     valid = 1;
                 } else if (strcmp(args[0], "send_news") == 0 && strcmp(type, "journalist") == 0 && argc == 3) {
                     valid = 1;
                 } else {
-                    printf("Command is not valid.\n");
+                    if (strcmp(type, "reader") != 0 && strcmp(type, "journalist") != 0)
+                        printf("You need to login first.\n");
+                    else printf("Command is not valid.\n");
                 }
                 /* // DEBUG
                 printf("Command: %s\n", args[0]);
@@ -202,7 +205,6 @@ void *writer_function(void *arg) {
             }
         } while (!valid);
 
-        printf("Command: %s\n", command);
         write(fd, command, strlen(command));
     }
 }

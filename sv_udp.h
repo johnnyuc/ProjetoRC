@@ -7,6 +7,9 @@
 # ifndef SV_UDP_H
 # define SV_UDP_H
 
+// Includes
+#include "sv_main.h"
+
 // Functio prototypes
 void *udp_thread(void *arg);
 void save_users();

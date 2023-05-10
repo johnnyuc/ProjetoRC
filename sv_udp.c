@@ -65,11 +65,11 @@ void *udp_thread(void *arg) {
 
         // Check if message is from an authenticated user
         int argc = 0;
-        char **argv = command_validation(buffer, &argc);
-        if (argv == NULL) continue;
+        char **args = command_validation(buffer, &argc);
+        if (args == NULL) continue;
 
-        if (strcmp(argv[0], "X") == 0) continue; // Ignore verbose UDP startup from netcat
-        int try_auth = authenticate_user(address, argv, argc, 0);
+        if (strcmp(args[0], "X") == 0) continue; // Ignore verbose UDP startup from netcat
+        int try_auth = authenticate_user(address, args, argc, 0);
 
         int aux=0;
         switch (try_auth) {
@@ -77,42 +77,42 @@ void *udp_thread(void *arg) {
                 sprintf(buffer, "Utilizador não autenticado\n");
                 break;
             case 2:
-                sprintf(buffer, "Utilizador %s autenticado com sucesso\n", argv[1]);
-                printf("Login de %s\n", argv[1]);
+                sprintf(buffer, "Utilizador %s autenticado com sucesso\n", args[1]);
+                printf("Login de %s\n", args[1]);
                 aux=1;
                 break;
             case 3:
-                sprintf(buffer, "Utilizador não autenticado, %s nao possui permissoes de administrador!\n", argv[1]);
+                sprintf(buffer, "Utilizador não autenticado, %s nao possui permissoes de administrador!\n", args[1]);
                 break;
             case 4:
                 sprintf(buffer, "Password incorreta\n");
                 break;
             case 5:
-                sprintf(buffer, "Utilizador '%s' não existe\n", argv[1]);
+                sprintf(buffer, "Utilizador '%s' não existe\n", args[1]);
                 break;
             case 0:
-                if (strcmp(argv[0], "logout") == 0) {
+                if (strcmp(args[0], "logout") == 0) {
                     sprintf(buffer, "O utilizador deslogou da conta\n");
                     break;
                 } else {
                     printf("Comando UDP: %s\n", buffer);
                     aux=2;
-                    if(strcmp(argv[0], "ADD_USER") == 0 && ((strcmp(argv[3], "administrator")==0) || (strcmp(argv[3], "reader")==0) || (strcmp(argv[3], "journalist")==0))){
+                    if(strcmp(args[0], "ADD_USER") == 0 && ((strcmp(args[3], "administrator")==0) || (strcmp(args[3], "reader")==0) || (strcmp(args[3], "journalist")==0))){
                         //ADD_USER {username} {password} {administrador/cliente/jornalista}
-                        add_user(argv[1], argv[2], argv[3]);
-                    }else if(strcmp(argv[0], "DEL") == 0){
+                        add_user(args[1], args[2], args[3]);
+                    }else if(strcmp(args[0], "DEL") == 0){
                         //DEL {username}
-                        remove_user(argv[1]);
-                    }else if(strcmp(argv[0], "LIST") == 0){
+                        remove_user(args[1]);
+                    }else if(strcmp(args[0], "LIST") == 0){
                         for (int i = 0; i < users_size; i++) {
                             sprintf( buffer,"  Username: %s\n", users[i].username);
                             if (sendto(sock_fd, buffer, strlen(buffer), 0, (struct sockaddr *)&address, sizeof(address)) == -1) printf("Erro no sendto");
                         }
-                    }else if(strcmp(argv[0], "QUIT") == 0){
+                    }else if(strcmp(args[0], "QUIT") == 0){
                         sprintf(buffer, "A encerrar a consola de admnistracao...\n ");
                         if (sendto(sock_fd, buffer, strlen(buffer), 0, (struct sockaddr *)&address, sizeof(address)) == -1) printf("Erro no sendto");
                         //Enviar um sinal que permita fezhar a consola
-                    }else if(strcmp(argv[0], "QUIT_SERVER") == 0){
+                    }else if(strcmp(args[0], "QUIT_SERVER") == 0){
                         save_users();
                         sprintf(buffer, "A encerrar o servidor...\n ");
                         if (sendto(sock_fd, buffer, strlen(buffer), 0, (struct sockaddr *)&address, sizeof(address)) == -1) printf("Erro no sendto");
@@ -140,7 +140,7 @@ void *udp_thread(void *arg) {
             snprintf(msg, 200, "\nlogin {Username} {Password}: ");
             if (sendto(sock_fd, msg, strlen(msg), 0, (struct sockaddr *)&address, addrlen) == -1) printf("Erro no sendto");
         }
-        free_argv(argv, argc);
+        free_args(args, argc);
     }
 }
 

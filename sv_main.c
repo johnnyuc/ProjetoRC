@@ -61,24 +61,24 @@ user_t* load_users(const char* filename, int* size) {
 
 
 // Function to authenticate an user
-int authenticate_user(struct sockaddr_in address, char **argv, int size, int protocol) {
+int authenticate_user(struct sockaddr_in address, char **args, int size, int protocol) {
 
     // Verify if user is already authenticated
     for (int i = 0; i < users_size; i++) {
         if (users[i].ipaddr.s_addr == address.sin_addr.s_addr && users[i].port == address.sin_port) {
             if (users[i].authenticated == 1) {
-                if (strcmp(argv[0], "logout") == 0) users[i].authenticated = 0;
+                if (strcmp(args[0], "logout") == 0) users[i].authenticated = 0;
                 return 0;
             }
         }
     }
 
     // Tries to authenticate user
-    if (strcmp(argv[0], "login") == 0) {
+    if (strcmp(args[0], "login") == 0) {
         for (int j = 0; j < users_size; j++) {
-            if (strcmp(users[j].username, argv[1]) == 0) {
+            if (strcmp(users[j].username, args[1]) == 0) {
                 // Verify if password is correct
-                if (strcmp(users[j].password, argv[2]) == 0) {
+                if (strcmp(users[j].password, args[2]) == 0) {
                     if (strcmp(users[j].type, "administrator") == 0) {
                         // Update user's IP address and port
                         users[j].ipaddr = address.sin_addr;
@@ -121,7 +121,7 @@ int authenticate_user(struct sockaddr_in address, char **argv, int size, int pro
 
 // Function to add command verification
 char **command_validation(char *command, int *num_tokens) {
-    char **argv = (char **) malloc(MAX_CMD_ARGS * sizeof(char *));
+    char **args = (char **) malloc(MAX_CMD_ARGS * sizeof(char *));
     int argc = 0;
     char *token;
 
@@ -136,7 +136,7 @@ char **command_validation(char *command, int *num_tokens) {
         char *arg = (char *) malloc((len + 1) * sizeof(char));
         strncpy(arg, token, len);
         arg[len] = '\0';
-        argv[argc] = arg;
+        args[argc] = arg;
         argc++;
         token = strtok(NULL, " ");
     }
@@ -144,24 +144,24 @@ char **command_validation(char *command, int *num_tokens) {
     // Set the number of tokens
     *num_tokens = argc;
 
-    if (argv[0] == NULL) {
-        free_argv(argv, argc);
+    if (args[0] == NULL) {
+        free_args(args, argc);
         return NULL;
     }
 
-    return argv;
+    return args;
 }
 
 // Function to free command arguments
 // Used in command_validation
-void free_argv(char **argv, int argc) {
+void free_args(char **args, int argc) {
     for (int i = 0; i < argc; i++) {
-        free(argv[i]);
+        free(args[i]);
     }
-    free(argv);
+    free(args);
 }
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const *args[]) {
     // Verify arguments and set ports
     if (argc < 4) {
         printf("Sintaxe: ./news_server {PORTO_NOTICIAS} {PORTO_CONFIG} {FICHEIRO_CONFIG}\n");
@@ -169,8 +169,8 @@ int main(int argc, char const *argv[]) {
     }
     
     // Store ports
-    int news_port = atoi(argv[1]);
-    int config_port = atoi(argv[2]);
+    int news_port = atoi(args[1]);
+    int config_port = atoi(args[2]);
 
     // Verify if ports are valid
     if (news_port < 0 || news_port > 65535 || config_port < 0 || config_port > 65535) {
@@ -179,8 +179,8 @@ int main(int argc, char const *argv[]) {
     }
 
     // User loading
-    users = load_users(argv[3], &users_size);
-    strcpy(save_data.str, argv[3]);
+    users = load_users(args[3], &users_size);
+    strcpy(save_data.str, args[3]);
 
     // Opening threads
     pthread_t tcp_thread_id, udp_thread_id;
