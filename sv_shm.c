@@ -77,21 +77,35 @@ void print_groups(multicast_shm_t *multicast_shm) {
     pthread_mutex_unlock(&multicast_shm->mutex);
 }
 
-int find_group(multicast_shm_t *multicast_shm, const char *id, const char *ip, int port) {
+int group_exists(multicast_shm_t *multicast_shm, const char *id, const char *ip, int port) {
     pthread_mutex_lock(&multicast_shm->mutex);
     // Finds if either id or (ip and port) are already in the shared memory
     for (int i = 0; i < MAX_GROUPS; i++) {
         if (strcmp(multicast_shm->multicastgroup[i].id, id) == 0) {
             pthread_mutex_unlock(&multicast_shm->mutex);
-            return 1;
+            return 1; // Found match with id
         } else if (strcmp(multicast_shm->multicastgroup[i].ip, ip) == 0 && multicast_shm->multicastgroup[i].port == port) {
             pthread_mutex_unlock(&multicast_shm->mutex);
-            return 2;
+            return 2; // Found match with ip and port
         }
     }
     pthread_mutex_unlock(&multicast_shm->mutex);
-    return 0;
+    return 0; // No match found
 }
+
+int group_index(multicast_shm_t *multicast_shm, const char *id) {
+    pthread_mutex_lock(&multicast_shm->mutex);
+    // Finds if either id or (ip and port) are already in the shared memory
+    for (int i = 0; i < MAX_GROUPS; i++) {
+        if (strcmp(multicast_shm->multicastgroup[i].id, id) == 0) {
+            pthread_mutex_unlock(&multicast_shm->mutex);
+            return i; // Found match, returns index
+        }
+    }
+    pthread_mutex_unlock(&multicast_shm->mutex);
+    return -1; // No match found
+}
+
 
 // Function to add a group to the shared memory
 void add_group(multicast_shm_t *multicast_shm, const char *id, const char *topic, const char *ip, int port) {

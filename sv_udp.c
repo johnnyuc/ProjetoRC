@@ -18,7 +18,7 @@ void *udp_thread(void *arg) {
     int sock_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
-    char buffer[BUF_SIZE] = {0};
+    char buffer[NEWS_BUF] = {0};
 
     // Socket
     if ((sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) == 0) {
@@ -43,7 +43,7 @@ void *udp_thread(void *arg) {
     int valread;
 
     while (1) {
-        valread = recvfrom(sock_fd, buffer, BUF_SIZE, MSG_WAITALL, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+        valread = recvfrom(sock_fd, buffer, MAX_LEN_LINE, MSG_WAITALL, (struct sockaddr *)&address, (socklen_t*)&addrlen);
         if (valread > 0){
             break;
         }
@@ -58,7 +58,7 @@ void *udp_thread(void *arg) {
 
     // Keep-alive
     while (1) {
-        valread = recvfrom(sock_fd, buffer, BUF_SIZE, MSG_WAITALL,
+        valread = recvfrom(sock_fd, buffer, MAX_LEN_LINE, MSG_WAITALL,
                            (struct sockaddr *)&address, (socklen_t*)&addrlen);
 
         buffer[strcspn(buffer, "\n")] = 0;

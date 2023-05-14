@@ -19,16 +19,19 @@ char req_topic[MAX_LEN_LINE];
 
 // SIGINT handler
 void sigint_handler(int sig) {
+    printf("EXIT STEP 0\n");
     // Close all socks
     for (int i = 0; i < num_groups; i++) {
         close(socks[i]);
     }
 
+    printf("EXIT STEP 1\n");
     // Close all threads
     pthread_cancel(listener_thread);
     if (sig == SIGINT || sig == EXIT_FAILURE) 
         pthread_cancel(writer_thread);
     
+    printf("EXIT STEP 2\n");
     // Wait for child processes to finish
     for (int i = 0; i < num_groups; i++) {
         wait(NULL);

@@ -17,8 +17,8 @@
 
 // Structs
 typedef struct multicast_group_t {
-    char id[BUF_SIZE];
-    char topic[BUF_SIZE];
+    char id[MAX_LEN_CREDS];
+    char topic[MAX_LEN_CREDS];
     char ip[16];
     int port;
 } multicast_group_t;
@@ -37,7 +37,8 @@ void detach_multicast_shm(multicast_shm_t* shm_ptr);
 void destroy_multicast_shm(multicast_shm_t* shm_ptr);
 
 void print_groups(multicast_shm_t *multicast_shm);
-int find_group(multicast_shm_t *multicast_shm, const char *id, const char *ip, int port);
+int group_exists(multicast_shm_t *multicast_shm, const char *id, const char *ip, int port);
+int group_index(multicast_shm_t *multicast_shm, const char *id);
 void add_group(multicast_shm_t *multicast_shm, const char *id, const char *topic, const char *ip, int port);
 void remove_group(multicast_shm_t *multicast_shm, const char *id);
 

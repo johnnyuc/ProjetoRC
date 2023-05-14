@@ -17,9 +17,9 @@
 #include <pthread.h>
 
 // Defines
-#define BUF_SIZE 1024
-#define MAX_LEN_CREDS 32
+#define NEWS_BUF 1024
 #define MAX_LEN_LINE 128
+#define MAX_LEN_CREDS 32
 #define MAX_CMD_ARGS 5
 
 // Structs
