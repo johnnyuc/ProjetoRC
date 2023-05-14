@@ -7,11 +7,45 @@
 #include "sv_main.h"
 #include "sv_tcp.h"
 #include "sv_udp.h"
+#include "sv_shm.h"
 
 // Global variables
-user_t *users;
-int users_size = 0;
+pthread_t tcp_thread_id, udp_thread_id;
+multicast_shm_t *multicast_shm;
 savedata_t save_data;
+int users_size = 0;
+user_t *users;
+
+int connected_clients[3];
+int num_clients = 0;
+int server_fd;
+
+volatile sig_atomic_t flag = 0;
+
+// Handle SIGTSTP
+void sigtstp_handler(int signum) {
+    printf("\rMulticast groups:\n");
+    print_groups(multicast_shm);
+}
+
+// Handle SIGINT
+void sigint_handler(int signum) {
+    // Wait for clients to finish
+    for (int i = 0; i < num_clients; i++) {
+        wait(NULL);
+        printf("Client %d disconnected\n", i+1);
+    }
+
+    for (int i = 0; i < num_clients; i++) {
+        close(connected_clients[i]);
+    }
+
+    close(server_fd);
+    if (pthread_self() != tcp_thread_id && pthread_self() != udp_thread_id) 
+        printf("\nA terminar servidor...\n");
+    
+    exit(0);
+}
 
 // Function to open credentials.txt file and read all users data
 user_t* load_users(const char* filename, int* size) {
@@ -162,6 +196,10 @@ void free_args(char **args, int argc) {
 }
 
 int main(int argc, char const *args[]) {
+    // Init sig handlers
+    signal(SIGINT, sigint_handler);
+    signal(SIGTSTP, sigtstp_handler);
+
     // Verify arguments and set ports
     if (argc < 4) {
         printf("Sintaxe: ./news_server {PORTO_NOTICIAS} {PORTO_CONFIG} {FICHEIRO_CONFIG}\n");
@@ -181,9 +219,6 @@ int main(int argc, char const *args[]) {
     // User loading
     users = load_users(args[3], &users_size);
     strcpy(save_data.str, args[3]);
-
-    // Opening threads
-    pthread_t tcp_thread_id, udp_thread_id;
 
     // Pthread initialization
     if (pthread_create(&tcp_thread_id, NULL, tcp_thread, &news_port)) {

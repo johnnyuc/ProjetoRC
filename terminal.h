@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 // Defines
 #define BUF_SIZE 1024

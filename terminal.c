@@ -17,27 +17,26 @@ int num_groups = 0;
 char type[MAX_LEN_LINE];
 char req_topic[MAX_LEN_LINE];
 
+volatile sig_atomic_t flag = 0;
+
 // SIGINT handler
 void sigint_handler(int sig) {
-    printf("EXIT STEP 0\n");
-    // Close all socks
-    for (int i = 0; i < num_groups; i++) {
-        close(socks[i]);
-    }
+    flag = 1;
 
-    printf("EXIT STEP 1\n");
-    // Close all threads
-    pthread_cancel(listener_thread);
-    if (sig == SIGINT || sig == EXIT_FAILURE) 
-        pthread_cancel(writer_thread);
-    
-    printf("EXIT STEP 2\n");
     // Wait for child processes to finish
     for (int i = 0; i < num_groups; i++) {
         wait(NULL);
     }
 
-    printf("\rA sair...\n");
+    for (int i = 0; i < num_groups; i++) {
+        close(socks[i]);
+    }
+    
+    close(fd);
+
+    if (pthread_self() != listener_thread && pthread_self() != writer_thread) 
+        printf("\rA sair...\n");
+        
     exit(0);
 }
 
@@ -80,11 +79,17 @@ void join_multicast(char *ip, int port, char *topic) {
     if (fork() == 0) {
         printf("A ouvir grupo %s\n", topic);
         char msg[BUF_SIZE];
-        while (1) {
+        while (!flag) {
             ssize_t bytes_read = read(sock, msg, BUF_SIZE);
             if (bytes_read > 0) {
-                printf("\rNova notícia [%s]: %.*s> ", req_topic, (int)bytes_read, msg);
+                printf("\rNova notícia [%s]: %.*s\n> ", req_topic, (int)bytes_read, msg);
                 fflush(stdout);
+            } else if (bytes_read == -1 && errno == EINTR) {
+                // Interrupted by signal (SIGINT)
+                continue;
+            } else {
+                perror("Error reading from multicast group");
+                break;
             }
         }
     }
@@ -94,9 +99,17 @@ void join_multicast(char *ip, int port, char *topic) {
 void *listener_function(void *arg) {
     char msg[BUF_SIZE];
 
-    while (1) {
+    while (!flag) {
         memset(msg, 0, BUF_SIZE);
         ssize_t bytes_read = read(fd, msg, BUF_SIZE);
+
+        if (bytes_read < 0) {
+            perror("Error reading from server");
+            sigint_handler(EXIT_FAILURE);
+        } else if (bytes_read == 0) {
+            printf("\rServidor desligado\n");
+            sigint_handler(EXIT_FAILURE);
+        }
 
         if (strcmp(msg, "reader") == 0) {
             strcpy(type, "reader");
@@ -146,7 +159,7 @@ void *listener_function(void *arg) {
 void *writer_function(void *arg) {
     char command[MAX_LEN_LINE];
 
-    while (1) {
+    while (!flag) {
         int valid = 0;
         do {
             printf("> ");
@@ -207,7 +220,6 @@ void *writer_function(void *arg) {
                 */
             }
         } while (!valid);
-
         write(fd, command, strlen(command));
     }
 }
@@ -216,18 +228,16 @@ void *writer_function(void *arg) {
 int main(int argc, char *argv[]) {
     signal(SIGINT, sigint_handler);
 
-    char endServer[100];
     struct sockaddr_in addr;
     struct hostent *hostPtr;
 
     // Verify arguments
     if (argc != 3) {
         printf("./tcp_client <host> <port>\n");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
-    strcpy(endServer, argv[1]);
-    if ((hostPtr = gethostbyname(endServer)) == 0)
+    if ((hostPtr = gethostbyname(argv[1])) == 0)
         perror("Could not obtain address");
 
     // Address assignment
@@ -247,6 +257,5 @@ int main(int argc, char *argv[]) {
     pthread_join(listener_thread, NULL);
     pthread_join(writer_thread, NULL);
 
-    close(fd);
     return 0;
 }

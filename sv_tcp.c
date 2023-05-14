@@ -7,6 +7,12 @@
 #include "sv_main.h"
 #include "sv_tcp.h"
 
+extern volatile sig_atomic_t flag;
+extern multicast_shm_t *multicast_shm;
+extern int num_clients;
+extern int server_fd;
+extern int connected_clients[3];
+
 void send_multicast(char *multicast_ip, int port, char *message) {
     int sockfd;
     struct sockaddr_in addr;
@@ -19,7 +25,7 @@ void send_multicast(char *multicast_ip, int port, char *message) {
     }
 
     // Set the TTL to limit the scope of the multicast
-    int ttl = 1;
+    int ttl = 3;
     if (setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0) {
         perror("setsockopt");
         exit(1);
@@ -68,7 +74,7 @@ void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, int server_fd
     sprintf(outgoing, "Bem-vindo ao servidor de notícias");
     send(new_socket, outgoing, strlen(outgoing), 0);
 
-    while (1) {
+    while (!flag) {
         memset(incoming, 0, sizeof(incoming));
         int valread = read(new_socket, incoming, MAX_LEN_LINE);
         if (valread < 0) {
@@ -101,12 +107,10 @@ void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, int server_fd
             case 3:
                 write(new_socket, "journalist", strlen("journalist")+1); // +1 for '\0'
                 sprintf(outgoing, "Utilizador %s autenticado com sucesso [Jornalista]\n", args[1]); // Journalist
-                printf("Login de %s\n", args[1]);
                 break;
             case 4:
                 write(new_socket, "reader", strlen("reader")+1); // +1 for '\0'
                 sprintf(outgoing, "Utilizador %s autenticado com sucesso [Leitor]\n", args[1]); // Reader
-                printf("Login de %s\n", args[1]);
                 break;
             case 5:
                 sprintf(outgoing, "Password incorreta\n");
@@ -117,6 +121,9 @@ void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, int server_fd
             case 0:
                 if (strcmp(args[0], "logout") == 0) {
                     sprintf(outgoing, "O utilizador deslogou da conta\n");
+                    break;
+                } else if (strcmp(args[0], "login") == 0) {
+                    sprintf(outgoing, "O utilizador já está logado\n");
                     break;
                 } else {
                     // Main function
@@ -133,7 +140,6 @@ void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, int server_fd
                             }
                         }
                         sprintf(outgoing, "Listagem de tópicos enviada\n");
-                        print_groups(multicast_groups);
                     } else if (strcmp(args[0], "subscribe_topic") == 0) {
                         int subscribed = 0;
                         for (int i = 0; i < MAX_GROUPS; i++) {
@@ -173,20 +179,24 @@ void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, int server_fd
                         sprintf(outgoing, "Tópico %s criado com sucesso\n", args[1]);
                         free(multicast_ip);
                     } else if (strcmp(args[0], "send_news") == 0) {
-                        printf("Enviar notícia\n");
+                        // Concat message to send
+                        memset(news, 0, sizeof(news));
+                        for (int i = 2; i < argc; i++) {
+                            strcat(news, args[i]);
+                            strcat(news, " ");
+                        }
+
                         int i = group_index(multicast_groups, args[1]);
-                        printf("ARGS: %s\n", args[1]);
                         if (i == -1) {
                             sprintf(outgoing, "Tópico com o ID %s não existe\n", args[1]);
                             break;
-                        } else send_multicast(multicast_groups->multicastgroup[i].ip, multicast_groups->multicastgroup[i].port, "Novo utilizador conectado\n");
-                        
-
+                        } else send_multicast(multicast_groups->multicastgroup[i].ip, multicast_groups->multicastgroup[i].port, news);
+                        continue;
                     }
                 }
                 break;
         }
-        printf("LAST MESSAGE: %s", outgoing);
+        printf("LAST SENT MESSAGE: %s TRY_AUTH: %d\n", outgoing, try_auth);
         write(new_socket, outgoing, strlen(outgoing));
         free_args(args, argc);
     }
@@ -197,7 +207,6 @@ void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, int server_fd
 // Creates TCP listening thread
 void *tcp_thread(void *arg) {
     int port = *(int*)arg;
-    int server_fd;
 
     struct sockaddr_in address;
     int addrlen = sizeof(address);
@@ -221,7 +230,7 @@ void *tcp_thread(void *arg) {
     }
 
     // Multicast groups
-    multicast_shm_t *multicast_shm = create_multicast_shm();
+    multicast_shm = create_multicast_shm();
 
     // Listen mode / [Only for TCP, as UDP is connectionless]
     // Max 3 connections
@@ -233,19 +242,22 @@ void *tcp_thread(void *arg) {
     printf("Servidor TCP à escuta na porta %d\n", port);
 
     // Keep-alive
-    while (1) {
+    while (!flag) {
         int new_socket;
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*) &addrlen))<0) {
             perror("Accept do TCP falhou");
             exit(EXIT_FAILURE);
         }
 
+        connected_clients[num_clients] = new_socket;
+
         printf("Cliente conectado: %s:%d\n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
         if (fork() == 0) {
+            num_clients++;
+            signal(SIGTSTP, SIG_IGN);
             close(server_fd);
             multicast_shm_t *multicast_shm_ptr = attach_multicast_shm(multicast_shm->shmid);
             handle_tcp(multicast_shm_ptr, new_socket, server_fd, address);
-            exit(EXIT_SUCCESS);
         }
         close(new_socket);
     }

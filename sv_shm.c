@@ -66,12 +66,12 @@ void destroy_multicast_shm(multicast_shm_t* shm_ptr) {
 
 void print_groups(multicast_shm_t *multicast_shm) {
     pthread_mutex_lock(&multicast_shm->mutex);
+    printf("\n");
     for (int i = 0; i < MAX_GROUPS; i++) {
         if (strcmp(multicast_shm->multicastgroup[i].id, "") != 0) {
-            printf("ID: %s LEN: %ld\n", multicast_shm->multicastgroup[i].id, strlen(multicast_shm->multicastgroup[i].id));
-            printf("TOPIC: %s\n", multicast_shm->multicastgroup[i].topic);
-            printf("IP: %s\n", multicast_shm->multicastgroup[i].ip);
-            printf("PORT: %d\n", multicast_shm->multicastgroup[i].port);
+            printf("ID: %s Topic: %s Multicast IP: %s Multicast port: %d\n", 
+            multicast_shm->multicastgroup[i].id, multicast_shm->multicastgroup[i].topic, 
+            multicast_shm->multicastgroup[i].ip, multicast_shm->multicastgroup[i].port);
         }
     }
     pthread_mutex_unlock(&multicast_shm->mutex);
