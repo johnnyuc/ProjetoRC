@@ -7,30 +7,32 @@
 # ifndef _TERMINAL_H_
 # define _TERMINAL_H_
 
+// Includes
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
+#include <sys/wait.h>
 #include <pthread.h>
 #include <signal.h>
-#include <sys/wait.h>
-#include <errno.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <semaphore.h>
 
 // Defines
-#define BUF_SIZE 1024
-#define MAX_LEN_LINE 128
-#define MAX_GROUPS 32
-#define MAX_ARGS 3
 #define h_addr h_addr_list[0]
+#define STANDARD_LEN 128
+#define INPUT_LEN 32
+#define NEWS_LEN 1024
+#define MAX_GROUPS 32
 
 // Structs
 typedef struct multicast_group_t {
-    char topic[BUF_SIZE];
+    char topic[STANDARD_LEN];
     char ip[16];
     int port;
 } multicast_group_t;

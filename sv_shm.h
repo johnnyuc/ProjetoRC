@@ -7,7 +7,7 @@
 # ifndef SV_SHM_H
 # define SV_SHM_H
 
-#include <sys/shm.h>
+#include <sys/shm.h> // Shared memory [do not remove]
 
 // Includes
 #include "sv_main.h"
@@ -36,6 +36,7 @@ multicast_shm_t* attach_multicast_shm(int shmid);
 void detach_multicast_shm(multicast_shm_t* shm_ptr);
 void destroy_multicast_shm(multicast_shm_t* shm_ptr);
 
+// Shared memory functions
 void print_groups(multicast_shm_t *multicast_shm);
 int group_exists(multicast_shm_t *multicast_shm, const char *id, const char *ip, int port);
 int group_index(multicast_shm_t *multicast_shm, const char *id);

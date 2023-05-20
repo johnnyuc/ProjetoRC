@@ -19,6 +19,6 @@ typedef struct tcp_client_t {
 
 // Function prototypes
 void *tcp_thread(void *arg);
-void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, int server_fd, struct sockaddr_in address);
+void handle_tcp(multicast_shm_t *multicast_groups, int new_socket, struct sockaddr_in address);
 
 # endif // SV_TCP_H

@@ -8,6 +8,7 @@
 #include "sv_main.h"
 #include "sv_shm.h"
 
+// Function to create multicast shared memory
 multicast_shm_t *create_multicast_shm() {
     int shmid;
     multicast_shm_t *shm;
@@ -37,6 +38,7 @@ multicast_shm_t *create_multicast_shm() {
     return shm;
 }
 
+// Function to attach to multicast shared memory
 multicast_shm_t* attach_multicast_shm(int shmid) {
     multicast_shm_t* shm_ptr = shmat(shmid, NULL, 0);
     if (shm_ptr == (void*) -1) {
@@ -46,6 +48,7 @@ multicast_shm_t* attach_multicast_shm(int shmid) {
     return shm_ptr;
 }
 
+// Function to detach from multicast shared memory
 void detach_multicast_shm(multicast_shm_t* shm_ptr) {
     if (shmdt(shm_ptr) == -1) {
         perror("shmdt failed");
@@ -53,6 +56,7 @@ void detach_multicast_shm(multicast_shm_t* shm_ptr) {
     }
 }
 
+// Function to destroy multicast shared memory
 void destroy_multicast_shm(multicast_shm_t* shm_ptr) {
     int storedShmid = shm_ptr->shmid;
 
@@ -64,6 +68,7 @@ void destroy_multicast_shm(multicast_shm_t* shm_ptr) {
     }
 }
 
+// Function to print all groups in the shared memory
 void print_groups(multicast_shm_t *multicast_shm) {
     pthread_mutex_lock(&multicast_shm->mutex);
     printf("\n");
@@ -77,6 +82,7 @@ void print_groups(multicast_shm_t *multicast_shm) {
     pthread_mutex_unlock(&multicast_shm->mutex);
 }
 
+// Function to check if a group already exists in the shared memory
 int group_exists(multicast_shm_t *multicast_shm, const char *id, const char *ip, int port) {
     pthread_mutex_lock(&multicast_shm->mutex);
     // Finds if either id or (ip and port) are already in the shared memory
@@ -93,6 +99,7 @@ int group_exists(multicast_shm_t *multicast_shm, const char *id, const char *ip,
     return 0; // No match found
 }
 
+// Function to check if a group already exists in the shared memory and returns its index
 int group_index(multicast_shm_t *multicast_shm, const char *id) {
     pthread_mutex_lock(&multicast_shm->mutex);
     // Finds if either id or (ip and port) are already in the shared memory
@@ -105,7 +112,6 @@ int group_index(multicast_shm_t *multicast_shm, const char *id) {
     pthread_mutex_unlock(&multicast_shm->mutex);
     return -1; // No match found
 }
-
 
 // Function to add a group to the shared memory
 void add_group(multicast_shm_t *multicast_shm, const char *id, const char *topic, const char *ip, int port) {

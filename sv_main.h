@@ -17,6 +17,9 @@
 #include <pthread.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <stdbool.h>
 
 // Defines
 #define NEWS_BUF 1024

@@ -30,20 +30,24 @@ void sigtstp_handler(int signum) {
 
 // Handle SIGINT
 void sigint_handler(int signum) {
+
     // Wait for clients to finish
     for (int i = 0; i < num_clients; i++) {
         wait(NULL);
         printf("Client %d disconnected\n", i+1);
     }
 
+    // Close clients socks
     for (int i = 0; i < num_clients; i++) {
         close(connected_clients[i]);
     }
 
+    // Exiting
+    if (pthread_self() != tcp_thread_id && pthread_self() != udp_thread_id)
+        printf("\nFinishing server...\n");
+
+    // Close server sock
     close(server_fd);
-    if (pthread_self() != tcp_thread_id && pthread_self() != udp_thread_id) 
-        printf("\nA terminar servidor...\n");
-    
     exit(0);
 }
 
@@ -57,9 +61,10 @@ user_t* load_users(const char* filename, int* size) {
     user_t *users; // Pointer to struct array
     int i = 0; // Tokeziner counter
 
+    // Open file
     file = fopen(filename, "r");
     if (file == NULL) {
-        printf("Erro ao carregar as credenciais de utilizador.\n");
+        printf("Error loading user credentials from file %s.\n", filename);
         exit(1);
     }
 
@@ -93,10 +98,8 @@ user_t* load_users(const char* filename, int* size) {
     return users;
 }
 
-
 // Function to authenticate an user
 int authenticate_user(struct sockaddr_in address, char **args, int size, int protocol) {
-
     // Verify if user is already authenticated
     for (int i = 0; i < users_size; i++) {
         if (users[i].ipaddr.s_addr == address.sin_addr.s_addr && users[i].port == address.sin_port) {
@@ -108,12 +111,13 @@ int authenticate_user(struct sockaddr_in address, char **args, int size, int pro
     }
 
     // Tries to authenticate user
-    if (strcmp(args[0], "login") == 0) {
+    if (strcmp(args[0], "login") == 0 && size == 3) {
         for (int j = 0; j < users_size; j++) {
             if (strcmp(users[j].username, args[1]) == 0) {
                 // Verify if password is correct
                 if (strcmp(users[j].password, args[2]) == 0) {
                     if (strcmp(users[j].type, "administrator") == 0) {
+                        if (users[j].authenticated == 1) return -1;
                         // Update user's IP address and port
                         users[j].ipaddr = address.sin_addr;
                         users[j].port = address.sin_port;
@@ -144,12 +148,6 @@ int authenticate_user(struct sockaddr_in address, char **args, int size, int pro
         }
         return 6;
     }
-
-    // Print whole array
-    for (int i = 0; i < users_size; i++) {
-        printf("%s %s %s %d %s %d\n", users[i].username, users[i].password, users[i].type, users[i].authenticated, inet_ntoa(users[i].ipaddr), users[i].port);
-    }
-
     return 1;
 }
 
@@ -195,6 +193,7 @@ void free_args(char **args, int argc) {
     free(args);
 }
 
+// Main function
 int main(int argc, char const *args[]) {
     // Init sig handlers
     signal(SIGINT, sigint_handler);
@@ -202,17 +201,17 @@ int main(int argc, char const *args[]) {
 
     // Verify arguments and set ports
     if (argc < 4) {
-        printf("Sintaxe: ./news_server {PORTO_NOTICIAS} {PORTO_CONFIG} {FICHEIRO_CONFIG}\n");
+        printf("Syntax: ./news_server {PORT_NEWS} {PORT_CONFIG} {FILE_CONFIG}\n");
         exit(EXIT_FAILURE);
     }
-    
+
     // Store ports
     int news_port = atoi(args[1]);
     int config_port = atoi(args[2]);
 
     // Verify if ports are valid
     if (news_port < 0 || news_port > 65535 || config_port < 0 || config_port > 65535) {
-        printf("Erro: o valor das portas deverá estar entre 1 e 65535\n");
+        printf("Error: The port value must be between 1 and 65535\n");
         exit(EXIT_FAILURE);
     }
 
@@ -222,12 +221,12 @@ int main(int argc, char const *args[]) {
 
     // Pthread initialization
     if (pthread_create(&tcp_thread_id, NULL, tcp_thread, &news_port)) {
-        perror("Falha a criar thread TCP");
+        perror("Failed to create TCP thread");
         exit(EXIT_FAILURE);
     }
 
     if (pthread_create(&udp_thread_id, NULL, udp_thread, &config_port)) {
-        perror("Falha a criar thread UDP");
+        perror("Failed to create UDP thread");
         exit(EXIT_FAILURE);
     }
 
